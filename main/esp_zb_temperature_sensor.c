@@ -117,7 +117,7 @@ typedef struct bme280_measurement_t {
  */
 typedef void (*bme_sensor_callback_t)(bme280_measurement reading);
 
-static bme_sensor_callback_t func_ptr;
+static bme_sensor_callback_t func_ptr = NULL;
 
 /**
  * @brief Tasks for updating the sensor value
