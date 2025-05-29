@@ -141,7 +141,7 @@ static void temp_sensor_driver_value_update(void *arg)
         ESP_ERROR_CHECK(bmx280_readoutFloat(bmx280, &sens_value.temperature, &sens_value.pressure, &sens_value.humidity));
         ESP_LOGI(TAG, "Read Values: temp = %f, pres = %f, hum = %f", sens_value.temperature, sens_value.pressure, sens_value.humidity);
 
-        if (func_ptr) {
+        if (func_ptr != NULL) {
             func_ptr(sens_value);
         }
         vTaskDelay(pdMS_TO_TICKS(30 * 1000));
@@ -186,7 +186,7 @@ static esp_err_t deferred_driver_init(void)
 
         func_ptr = esp_app_temp_sensor_handler;
 
-        esp_err_t sensor_task_res = (xTaskCreate(temp_sensor_driver_value_update, "bme280_update", 2048, NULL, 10, NULL) == pdTRUE) ? ESP_OK : ESP_FAIL;
+        esp_err_t sensor_task_res = (xTaskCreate(temp_sensor_driver_value_update, "bme280_update", 8192, NULL, 10, NULL) == pdTRUE) ? ESP_OK : ESP_FAIL;
         ESP_RETURN_ON_ERROR(
             sensor_task_res,
             TAG, "Failed to initialize temperature sensor task");
