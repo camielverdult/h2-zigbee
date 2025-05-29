@@ -13,6 +13,7 @@
  */
 #include "esp_zb_temperature_sensor.h"
 #include "esp_err.h"
+#include "freertos/projdefs.h"
 #include "temp_sensor_driver.h"
 #include "switch_driver.h"
 
@@ -37,6 +38,8 @@
 #endif
 
 static const char *TAG = "ESP_ZB_TEMP_SENSOR";
+
+static const int ZB_LOCK_TICKS = pdMS_TO_TICKS(1000);
 
 i2c_master_bus_handle_t i2c_bus_init(uint8_t sda_io, uint8_t scl_io)
 {
@@ -106,8 +109,8 @@ esp_err_t bmx280_dev_init(bmx280_t** bmx280,i2c_master_bus_handle_t bus_handle)
 
 typedef struct bme280_measurement_t {
     float temperature;
-    float pressure;
-    float humidity;
+    int pressure;
+    int humidity;
 } bme280_measurement;
 
 /** Temperature sensor callback
@@ -117,7 +120,7 @@ typedef struct bme280_measurement_t {
  */
 typedef void (*bme_sensor_callback_t)(bme280_measurement reading);
 
-static bme_sensor_callback_t func_ptr = NULL;
+static bme_sensor_callback_t zigbee_update_callback_func = NULL;
 
 /**
  * @brief Tasks for updating the sensor value
@@ -128,6 +131,13 @@ static void temp_sensor_driver_value_update(void *arg)
 {
     bme280_measurement sens_value = {.temperature = 0.0f, .humidity = 0.0f, .pressure = 0.0f };
     for (;;) {
+        if (zigbee_update_callback_func == NULL) {
+            ESP_LOGE(TAG, "No callback function set yet, waiting...");
+            vTaskDelay(pdMS_TO_TICKS(1 * 1000));
+
+            continue;
+        }
+
         //  For a next measurement, forced mode needs to be selected again.
         ESP_ERROR_CHECK(bmx280_setMode(bmx280, BMX280_MODE_FORCE));
         do {
@@ -138,42 +148,48 @@ static void temp_sensor_driver_value_update(void *arg)
             }
         } while(bmx280_isSampling(bmx280));
 
-        ESP_ERROR_CHECK(bmx280_readoutFloat(bmx280, &sens_value.temperature, &sens_value.pressure, &sens_value.humidity));
-        ESP_LOGI(TAG, "Read Values: temp = %f, pres = %f, hum = %f", sens_value.temperature, sens_value.pressure, sens_value.humidity);
+        float temperature, pressure, humidity;
 
-        if (func_ptr != NULL) {
-            func_ptr(sens_value);
-        }
-        vTaskDelay(pdMS_TO_TICKS(30 * 1000));
+        ESP_ERROR_CHECK(bmx280_readoutFloat(bmx280, &temperature, &pressure, &humidity));
+
+        // Convert pressure to hPa
+        pressure /= 100.0;
+
+        // Round values to 1 decimal place
+        sens_value.temperature = roundf(temperature * 10.0) / 10.0;
+        sens_value.pressure = round(pressure);
+        sens_value.humidity = round(humidity);
+
+        ESP_LOGI(TAG, "Read Values: temp = %f, pres = %i, hum = %i", sens_value.temperature, sens_value.pressure, sens_value.humidity);
+
+        zigbee_update_callback_func(sens_value);
+
+        vTaskDelay(pdMS_TO_TICKS(5 * 1000));
     }
 }
 
 static void esp_app_temp_sensor_handler(bme280_measurement measurement)
 {
+    ESP_LOGI(TAG, "Setting zigbee attributes");
     int16_t temp = zb_temperature_to_s16(measurement.temperature);
-    // int16_t hum = zb_temperature_to_s16(measurement.humidity);
-    // int16_t pres = zb_temperature_to_s16(measurement.pressure);
-    /* Update temperature sensor measured value */
-    esp_zb_lock_acquire(portMAX_DELAY);
+
+    if (!esp_zb_lock_acquire(ZB_LOCK_TICKS)) {
+        ESP_LOGW(TAG, "Could not acquire zigbee lock");
+        return;
+    }
+
     esp_zb_zcl_set_attribute_val(HA_ESP_SENSOR_ENDPOINT,
         ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
         ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, &temp, false);
-    // esp_zb_zcl_set_attribute_val(HA_ESP_SENSOR_ENDPOINT,
-    //     ESP_ZB_ZCL_CLUSTER_ID_PRESSURE_MEASUREMENT, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-    //     ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID, &temp, false);
+
     esp_zb_lock_release();
 }
 
 static esp_err_t deferred_driver_init(void)
 {
     static bool is_inited = false;
-    // temperature_sensor_config_t temp_sensor_config =
-    //     TEMPERATURE_SENSOR_CONFIG_DEFAULT(ESP_TEMP_SENSOR_MIN_VALUE, ESP_TEMP_SENSOR_MAX_VALUE);
-    if (!is_inited) {
-        // ESP_RETURN_ON_ERROR(
-        //     temp_sensor_driver_init(&temp_sensor_config, ESP_TEMP_SENSOR_UPDATE_INTERVAL, esp_app_temp_sensor_handler),
-        //     TAG, "Failed to initialize temperature sensor");
 
+    if (!is_inited) {
         bus_handle = i2c_bus_init(BMX280_SDA_NUM, BMX280_SCL_NUM);
 
         ESP_RETURN_ON_ERROR(
@@ -184,7 +200,7 @@ static esp_err_t deferred_driver_init(void)
             bmx280_setMode(bmx280, BMX280_MODE_FORCE),
             TAG, "Failed to set bme280 mode to forced");
 
-        func_ptr = esp_app_temp_sensor_handler;
+        zigbee_update_callback_func = esp_app_temp_sensor_handler;
 
         esp_err_t sensor_task_res = (xTaskCreate(temp_sensor_driver_value_update, "bme280_update", 8192, NULL, 10, NULL) == pdTRUE) ? ESP_OK : ESP_FAIL;
         ESP_RETURN_ON_ERROR(
@@ -235,7 +251,7 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
                      extended_pan_id[3], extended_pan_id[2], extended_pan_id[1], extended_pan_id[0],
                      esp_zb_get_pan_id(), esp_zb_get_current_channel(), esp_zb_get_short_address());
         } else {
-            ESP_LOGI(TAG, "Network steering was not successful (status: %s)", esp_err_to_name(err_status));
+            ESP_LOGI(TAG, "Network steering was not successful, not connected? (status: %s)", esp_err_to_name(err_status));
             esp_zb_scheduler_alarm((esp_zb_callback_t)bdb_start_top_level_commissioning_cb, ESP_ZB_BDB_MODE_NETWORK_STEERING, 1000);
         }
         break;
@@ -304,9 +320,24 @@ static void esp_zb_task(void *pvParameters)
         .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
     };
 
-    esp_zb_zcl_update_reporting_info(&reporting_info);
+    esp_err_t err = esp_zb_zcl_update_reporting_info(&reporting_info);
+    switch (err) {
+        case ESP_OK:
+            break;
+        default:
+            ESP_LOGW(TAG, "Updating reporting info failed (status: %s)", esp_err_to_name(err));
+            break;
+    }
 
-    esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
+    err = esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
+    switch (err) {
+        case ESP_OK:
+            break;
+        default:
+            ESP_LOGW(TAG, "Setting primary network channel failed (status: %s)", esp_err_to_name(err));
+            break;
+    }
+
     ESP_ERROR_CHECK(esp_zb_start(false));
 
     esp_zb_stack_main_loop();
