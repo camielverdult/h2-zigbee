@@ -3,12 +3,12 @@
 
 # Temperature Sensor Example
 
-This example demonstrates how to configure a Home Automation temperature sensor on a Zigbee end device.
+This project demonstrates how to expose BME280 sensor data from a Zigbee end device.
 
 ## Hardware Required
 
 * One 802.15.4 enabled development board (e.g., ESP32-H2 or ESP32-C6) running this example.
-* A second board running as a Zigbee coordinator (see [HA_thermostat](../HA_thermostat/) example)
+* One Zigbee modem or pre-existing network
 
 ## Configure the project
 
@@ -47,13 +47,4 @@ I (8730) ESP_ZB_TEMP_SENSOR: Joined network successfully (Extended PAN ID: 74:4d
 - If the board is on a network, it acts as a Zigbee End Device with the `Home Automation Temperature Sensor` function
 
 - The board updates the temperature attribute of the `Temperature Measurement` cluster based on the actual temperature sensor value of the chip.
-
-- By clicking the `BOOT` button on this board, the board will actively report the current measured temperature to the bound device.
-```
-I (17800) ESP_ZB_TEMP_SENSOR: Send 'report attributes' command
-I (18850) ESP_ZB_TEMP_SENSOR: Send 'report attributes' command
-```
-
-## Troubleshooting
-
-For any technical queries, please open an [issue](https://github.com/espressif/esp-zigbee-sdk/issues) on GitHub. We will get back to you soon.
+- The board updates the temperature attribute of the `Humidity Measurement` cluster based on the actual humidity sensor value of the chip.
