@@ -12,6 +12,8 @@
  * CONDITIONS OF ANY KIND, either express or implied.
  */
 #include "esp_zb_temperature_sensor.h"
+#include "esp_zb_custom_sensor.h"
+
 #include "esp_err.h"
 #include "freertos/projdefs.h"
 #include "switch_driver.h"
@@ -271,72 +273,109 @@ void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct) {
   }
 }
 
-static esp_zb_cluster_list_t *custom_temperature_sensor_clusters_create(
-    esp_zb_temperature_sensor_cfg_t *temperature_sensor) {
-  esp_zb_cluster_list_t *cluster_list = esp_zb_zcl_cluster_list_create();
-  esp_zb_attribute_list_t *basic_cluster =
-      esp_zb_basic_cluster_create(&(temperature_sensor->basic_cfg));
-  ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(
-      basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID,
-      MANUFACTURER_NAME));
-  ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(
-      basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,
-      MODEL_IDENTIFIER));
-  ESP_ERROR_CHECK(esp_zb_cluster_list_add_basic_cluster(
-      cluster_list, basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
-  ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(
-      cluster_list,
-      esp_zb_identify_cluster_create(&(temperature_sensor->identify_cfg)),
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
-  ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(
-      cluster_list, esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY),
-      ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE));
-  ESP_ERROR_CHECK(esp_zb_cluster_list_add_temperature_meas_cluster(
-      cluster_list,
-      esp_zb_temperature_meas_cluster_create(
-          &(temperature_sensor->temp_meas_cfg)),
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
-  return cluster_list;
-}
+// static esp_zb_cluster_list_t *custom_temperature_sensor_clusters_create(
+//     esp_zb_temperature_sensor_cfg_t *temperature_sensor) {
+//   esp_zb_cluster_list_t *cluster_list = esp_zb_zcl_cluster_list_create();
+//   esp_zb_attribute_list_t *basic_cluster =
+//       esp_zb_basic_cluster_create(&(temperature_sensor->basic_cfg));
+//   ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(
+//       basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID,
+//       MANUFACTURER_NAME));
+//   ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(
+//       basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID,
+//       MODEL_IDENTIFIER));
+//   ESP_ERROR_CHECK(esp_zb_cluster_list_add_basic_cluster(
+//       cluster_list, basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
+//   ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(
+//       cluster_list,
+//       esp_zb_identify_cluster_create(&(temperature_sensor->identify_cfg)),
+//       ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
+//   ESP_ERROR_CHECK(esp_zb_cluster_list_add_identify_cluster(
+//       cluster_list, esp_zb_zcl_attr_list_create(ESP_ZB_ZCL_CLUSTER_ID_IDENTIFY),
+//       ESP_ZB_ZCL_CLUSTER_CLIENT_ROLE));
+//   ESP_ERROR_CHECK(esp_zb_cluster_list_add_temperature_meas_cluster(
+//       cluster_list,
+//       esp_zb_temperature_meas_cluster_create(
+//           &(temperature_sensor->temp_meas_cfg)),
+//       ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
+//   return cluster_list;
+// }
 
-static esp_zb_ep_list_t *custom_temperature_sensor_ep_create(
-    uint8_t endpoint_id, esp_zb_temperature_sensor_cfg_t *temperature_sensor) {
-  esp_zb_ep_list_t *ep_list = esp_zb_ep_list_create();
-  esp_zb_endpoint_config_t endpoint_config = {
-      .endpoint = endpoint_id,
-      .app_profile_id = ESP_ZB_AF_HA_PROFILE_ID,
-      .app_device_id = ESP_ZB_HA_TEMPERATURE_SENSOR_DEVICE_ID,
-      .app_device_version = 0};
-  esp_zb_ep_list_add_ep(
-      ep_list, custom_temperature_sensor_clusters_create(temperature_sensor),
-      endpoint_config);
-  return ep_list;
-}
+// static esp_zb_ep_list_t *custom_temperature_sensor_ep_create(
+//     uint8_t endpoint_id, esp_zb_temperature_sensor_cfg_t *temperature_sensor)
+// {
+//     esp_zb_ep_list_t *ep_list = esp_zb_ep_list_create();
+
+//     esp_zb_endpoint_config_t endpoint_config = {
+//         .endpoint = endpoint_id,
+//         .app_profile_id = ESP_ZB_AF_HA_PROFILE_ID,
+//         .app_device_id = ESP_ZB_HA_TEMPERATURE_SENSOR_DEVICE_ID,
+//         .app_device_version = 0
+//     };
+
+//     esp_zb_ep_list_add_ep(
+//         ep_list, custom_temperature_sensor_clusters_create(temperature_sensor),
+//         endpoint_config);
+
+//     return ep_list;
+// }
 
 static void esp_zb_task(void *pvParameters) {
-  /* Initialize Zigbee stack */
-  esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZED_CONFIG();
-  esp_zb_init(&zb_nwk_cfg);
+    /* Initialize Zigbee stack */
+    esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZED_CONFIG();
+    esp_zb_init(&zb_nwk_cfg);
 
-  /* Create customized temperature sensor endpoint */
-  esp_zb_temperature_sensor_cfg_t sensor_cfg =
-      ESP_ZB_DEFAULT_TEMPERATURE_SENSOR_CONFIG();
-  /* Set (Min|Max)MeasuredValure */
-  sensor_cfg.temp_meas_cfg.min_value =
-      zb_temperature_to_s16(ESP_TEMP_SENSOR_MIN_VALUE);
-  sensor_cfg.temp_meas_cfg.max_value =
-      zb_temperature_to_s16(ESP_TEMP_SENSOR_MAX_VALUE);
-  esp_zb_ep_list_t *esp_zb_sensor_ep =
-      custom_temperature_sensor_ep_create(HA_ESP_SENSOR_ENDPOINT, &sensor_cfg);
+    /* Create customized temperature sensor endpoint */
+    esp_zb_temperature_sensor_cfg_t sensor_cfg =
+        ESP_ZB_DEFAULT_TEMPERATURE_SENSOR_CONFIG();
+    /* Set (Min|Max)MeasuredValure */
+    sensor_cfg.temp_meas_cfg.min_value =
+        zb_temperature_to_s16(ESP_TEMP_SENSOR_MIN_VALUE);
+    sensor_cfg.temp_meas_cfg.max_value =
+        zb_temperature_to_s16(ESP_TEMP_SENSOR_MAX_VALUE);
 
-  /* Register the device */
-  esp_zb_device_register(esp_zb_sensor_ep);
+    esp_zb_humidity_meas_cluster_cfg_t humidity_meas_cfg = {
+        .measured_value = ESP_ZB_ZCL_REL_HUMIDITY_MEASUREMENT_MEASURED_VALUE_DEFAULT,
+        .min_value = zb_temperature_to_s16(ESP_HUM_SENSOR_MIN_VALUE),
+        .max_value = zb_temperature_to_s16(ESP_HUM_SENSOR_MAX_VALUE),
+    };
 
-  /* Config the reporting info  */
-  esp_zb_zcl_reporting_info_t reporting_info = {
+    esp_zb_ep_list_t *esp_zb_sensor_ep = create_endpoint(
+        HA_ESP_SENSOR_ENDPOINT, &sensor_cfg, &humidity_meas_cfg);
+
+    /* Register the device */
+    esp_zb_device_register(esp_zb_sensor_ep);
+
+    /* Config the reporting info  */
+    esp_zb_zcl_reporting_info_t temp_reporting_info = {
+        .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
+        .ep = HA_ESP_SENSOR_ENDPOINT,
+        .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
+        .cluster_role = ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+        .dst.profile_id = ESP_ZB_AF_HA_PROFILE_ID,
+        .u.send_info.min_interval = 1,
+        .u.send_info.max_interval = 0,
+        .u.send_info.def_min_interval = 1,
+        .u.send_info.def_max_interval = 0,
+        .u.send_info.delta.u16 = 100,
+        .attr_id = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID,
+        //   .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
+    };
+
+    esp_err_t err = esp_zb_zcl_update_reporting_info(&temp_reporting_info);
+    switch (err) {
+    case ESP_OK:
+        break;
+    default:
+        ESP_LOGW(TAG, "Updating temperature reporting info failed (status: %s)",
+                esp_err_to_name(err));
+        break;
+    }
+
+    esp_zb_zcl_reporting_info_t hum_reporting_info = {
       .direction = ESP_ZB_ZCL_CMD_DIRECTION_TO_SRV,
       .ep = HA_ESP_SENSOR_ENDPOINT,
-      .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_TEMP_MEASUREMENT,
+      .cluster_id = ESP_ZB_ZCL_CLUSTER_ID_REL_HUMIDITY_MEASUREMENT,
       .cluster_role = ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
       .dst.profile_id = ESP_ZB_AF_HA_PROFILE_ID,
       .u.send_info.min_interval = 1,
@@ -344,19 +383,19 @@ static void esp_zb_task(void *pvParameters) {
       .u.send_info.def_min_interval = 1,
       .u.send_info.def_max_interval = 0,
       .u.send_info.delta.u16 = 100,
-      .attr_id = ESP_ZB_ZCL_ATTR_TEMP_MEASUREMENT_VALUE_ID,
-      .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
-  };
+      .attr_id = ESP_ZB_ZCL_ATTR_REL_HUMIDITY_MEASUREMENT_VALUE_ID,
+      //   .manuf_code = ESP_ZB_ZCL_ATTR_NON_MANUFACTURER_SPECIFIC,
+    };
 
-  esp_err_t err = esp_zb_zcl_update_reporting_info(&reporting_info);
-  switch (err) {
-  case ESP_OK:
-    break;
-  default:
-    ESP_LOGW(TAG, "Updating reporting info failed (status: %s)",
-             esp_err_to_name(err));
-    break;
-  }
+    switch (err)
+    {
+    case ESP_OK:
+        break;
+    default:
+        ESP_LOGW(TAG, "Updating temperature reporting info failed (status: %s)",
+                 esp_err_to_name(err));
+        break;
+    }
 
   err = esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
   switch (err) {
