@@ -41,6 +41,9 @@ typedef struct zb_custom_cfg_s
         }                                                                                 \
     }
 
+/// @brief Create cluster list for the custom temperature sensor endpoint
+/// @param sensor_cfg Pointer to the custom sensor configuration structure, containing the configuration for the various clusters
+/// @return Pointer to the created cluster list, containing the clusters required for the various Zigbee HA sensor functionality
 static esp_zb_cluster_list_t *create_cluster_list(zb_custom_cfg_t *sensor_cfg)
 {
     esp_zb_cluster_list_t *cluster_list = esp_zb_zcl_cluster_list_create();

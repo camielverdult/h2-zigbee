@@ -53,8 +53,3 @@
     {                                                           \
         .host_connection_mode = ZB_HOST_CONNECTION_MODE_NONE,   \
     }
-
-static int16_t zb_temperature_to_s16(float temp)
-{
-    return (int16_t)(temp * 100);
-}

@@ -42,7 +42,7 @@ static const char *TAG = "ESP_TEMP_SENSOR_DRIVER";
  *
  * @param arg      Unused value.
  */
-static void temp_sensor_driver_value_update(void *arg)
+static void sensor_update_task(void *arg)
 {
     for (;;) {
         float tsens_value;
@@ -65,7 +65,7 @@ static esp_err_t temp_sensor_driver_sensor_init(temperature_sensor_config_t *con
                         TAG, "Fail to install on-chip temperature sensor");
     ESP_RETURN_ON_ERROR(temperature_sensor_enable(temp_sensor),
                         TAG, "Fail to enable on-chip temperature sensor");
-    return (xTaskCreate(temp_sensor_driver_value_update, "sensor_update", 2048, NULL, 10, NULL) == pdTRUE) ? ESP_OK : ESP_FAIL;
+    return (xTaskCreate(sensor_update_task, "sensor_update", 2048, NULL, 10, NULL) == pdTRUE) ? ESP_OK : ESP_FAIL;
 }
 
 esp_err_t temp_sensor_driver_init(temperature_sensor_config_t *config, uint16_t update_interval,

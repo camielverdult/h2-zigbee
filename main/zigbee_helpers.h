@@ -1,4 +1,14 @@
 #include "esp_zigbee_core.h"
+#include "esp_check.h"
+
+static const int ZB_LOCK_TICKS = pdMS_TO_TICKS(1000);
+
+static void bdb_start_top_level_commissioning_cb(uint8_t mode_mask)
+{
+    ESP_RETURN_ON_FALSE(
+        esp_zb_bdb_start_top_level_commissioning(mode_mask) == ESP_OK,
+        , "ZB_HELPERS", "Failed to start Zigbee bdb commissioning");
+}
 
 static void zb_configure_reporting(void)
 {
@@ -55,4 +65,14 @@ static void zb_configure_reporting(void)
                  esp_err_to_name(err));
         break;
     }
+}
+
+static int16_t zb_temperature_to_s16(float temp)
+{
+    return (int16_t)(temp * 100);
+}
+
+static int16_t zb_to_s16(int temp)
+{
+    return (int16_t)(temp * 100);
 }
