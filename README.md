@@ -10,6 +10,10 @@ This project demonstrates how to expose BME280 sensor data from a Zigbee end dev
 * One 802.15.4 enabled development board (e.g., ESP32-H2 or ESP32-C6) running this example.
 * One Zigbee modem or pre-existing network
 
+## Preparations
+
+Clone the [esp-idf-bmx280](https://github.com/utkumaden/esp-idf-bmx280) repository into the `components` directory.
+
 ## Configure the project
 
 Before project configuration and build, make sure to set the correct chip target using `idf.py set-target TARGET` command.
