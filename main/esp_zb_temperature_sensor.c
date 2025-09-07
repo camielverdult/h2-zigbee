@@ -55,10 +55,6 @@ i2c_master_bus_handle_t i2c_bus_init(uint8_t sda_io, uint8_t scl_io) {
   return bus_handle;
 }
 
-static int16_t zb_temperature_to_s16(float temp) {
-  return (int16_t)(temp * 100);
-}
-
 static switch_func_pair_t button_func_pair[] = {
     {GPIO_INPUT_IO_TOGGLE_SWITCH, SWITCH_ONOFF_TOGGLE_CONTROL}};
 

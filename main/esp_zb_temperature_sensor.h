@@ -21,9 +21,12 @@
 #define HA_ESP_SENSOR_ENDPOINT          10      /* esp temperature sensor device endpoint, used for temperature measurement */
 #define ESP_ZB_PRIMARY_CHANNEL_MASK     ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK    /* Zigbee primary channel mask use in the example */
 
-#define ESP_TEMP_SENSOR_UPDATE_INTERVAL (1)     /* Local sensor update interval (second) */
+#define ESP_TEMP_SENSOR_UPDATE_INTERVAL (30)     /* Local sensor update interval (second) */
 #define ESP_TEMP_SENSOR_MIN_VALUE       (-10)   /* Local sensor min measured value (degree Celsius) */
 #define ESP_TEMP_SENSOR_MAX_VALUE       (80)    /* Local sensor max measured value (degree Celsius) */
+
+#define ESP_HUM_SENSOR_MIN_VALUE       (0)   /* Local sensor min measured value (degree Celsius) */
+#define ESP_HUM_SENSOR_MAX_VALUE       (100)    /* Local sensor max measured value (degree Celsius) */
 
 /* Attribute values in ZCL string format
  * The string should be started with the length of its own.
@@ -50,3 +53,8 @@
     {                                                           \
         .host_connection_mode = ZB_HOST_CONNECTION_MODE_NONE,   \
     }
+
+static int16_t zb_temperature_to_s16(float temp)
+{
+    return (int16_t)(temp * 100);
+}
