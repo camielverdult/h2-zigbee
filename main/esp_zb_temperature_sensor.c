@@ -129,7 +129,7 @@ static void sensor_update_task(void *arg)
 
         esp_app_temp_sensor_handler(sens_value);
 
-        vTaskDelay(pdMS_TO_TICKS(ESP_TEMP_SENSOR_UPDATE_INTERVAL * 1000));
+        vTaskDelay(pdMS_TO_TICKS(TEMPERATURE_SENSOR_UPDATE_INTERVAL * 1000));
     }
 }
 
@@ -237,9 +237,16 @@ static void esp_zb_task(void *pvParameters) {
 
     // Set the temperature sensor measurement range
     sensor_cfg.temp_meas_cfg.min_value =
-        zb_to_s16(ESP_TEMP_SENSOR_MIN_VALUE);
+        zb_to_s16(TEMPERATURE_SENSOR_MIN_VALUE);
     sensor_cfg.temp_meas_cfg.max_value =
-        zb_to_s16(ESP_TEMP_SENSOR_MAX_VALUE);
+        zb_to_s16(TEMPERATURE_SENSOR_MAX_VALUE);
+
+    // This is not really required, since the default range is always 0 to 100 %
+    // Set the humidity sensor measurement range
+    sensor_cfg.humidity_meas_cfg.min_value =
+        zb_to_s16(HUMIDITY_SENSOR_MIN_VALUE);
+    sensor_cfg.humidity_meas_cfg.max_value =
+        zb_to_s16(HUMIDITY_SENSOR_MAX_VALUE);
 
     esp_zb_ep_list_t *esp_zb_sensor_ep = create_endpoint(
         HA_ESP_SENSOR_ENDPOINT, &sensor_cfg);
