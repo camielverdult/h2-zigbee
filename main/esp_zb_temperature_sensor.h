@@ -13,6 +13,7 @@
  */
 
 #include "esp_zigbee_core.h"
+#include "string.h"
 
 /* Zigbee configuration */
 #define INSTALLCODE_POLICY_ENABLE       false   /* enable the install code policy for security */
@@ -32,7 +33,7 @@
  * The string should be started with the length of its own.
  */
 #define MANUFACTURER_NAME               "\x09""ESPRESSIF"
-#define MODEL_IDENTIFIER                "\x07"CONFIG_IDF_TARGET
+
 
 #define ESP_ZB_ZED_CONFIG()                                         \
     {                                                               \

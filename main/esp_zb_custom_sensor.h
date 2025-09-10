@@ -1,4 +1,5 @@
 #include "esp_zigbee_core.h"
+#include "esp_mac.h"
 
 /**
  * @brief Zigbee HA standard temperature sensor clusters.
@@ -41,6 +42,12 @@ typedef struct zb_custom_cfg_s
         }                                                                                 \
     }
 
+static uint8_t efuse_mac[8];
+
+// string to hold the efuse mac value and present it to ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID
+#define MODEL_CHARS 24
+static char UNIQUE_ID[MODEL_CHARS];
+
 /// @brief Create cluster list for the custom temperature sensor endpoint
 /// @param sensor_cfg Pointer to the custom sensor configuration structure, containing the configuration for the various clusters
 /// @return Pointer to the created cluster list, containing the clusters required for the various Zigbee HA sensor functionality
@@ -49,11 +56,27 @@ static esp_zb_cluster_list_t *create_cluster_list(zb_custom_cfg_t *sensor_cfg)
     esp_zb_cluster_list_t *cluster_list = esp_zb_zcl_cluster_list_create();
 
     // Basic
-    esp_zb_attribute_list_t *basic_cluster =
-        esp_zb_basic_cluster_create(&sensor_cfg->basic_cfg);
+    esp_zb_attribute_list_t *basic_cluster = esp_zb_basic_cluster_create(
+        &sensor_cfg->basic_cfg);
+
+    esp_err_t efuse_err = esp_efuse_mac_get_default(efuse_mac);
+
+    memset(UNIQUE_ID, 0, MODEL_CHARS);
+    if (efuse_err == ESP_OK) {
+        // Get target type (esp32-h2, etc.)
+        const int len = snprintf(UNIQUE_ID + 1, MODEL_CHARS - 1, CONFIG_IDF_TARGET " #%02X%02X%02X", efuse_mac[3], efuse_mac[4], efuse_mac[5]);
+        assert(len < MODEL_CHARS); // Ensure we did not exceed buffer
+        UNIQUE_ID[0] = (uint8_t)len;  // Set length prefix
+    } else {
+        ESP_LOGW("ZB_SENSOR", "Could not read MAC from efuse, err: %d", efuse_err);
+        strcpy(UNIQUE_ID + 1, "UNKNOWN");
+        UNIQUE_ID[0] = 7;  // Length of "UNKNOWN"
+    }
+
+    ESP_LOGI("ZB_SENSOR", "Setting ATTR_BASIC_MODEL_IDENTIFIER_ID to %s", UNIQUE_ID + 1);
 
     ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MANUFACTURER_NAME_ID, MANUFACTURER_NAME));
-    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, MODEL_IDENTIFIER));
+    ESP_ERROR_CHECK(esp_zb_basic_cluster_add_attr(basic_cluster, ESP_ZB_ZCL_ATTR_BASIC_MODEL_IDENTIFIER_ID, UNIQUE_ID));
     ESP_ERROR_CHECK(esp_zb_cluster_list_add_basic_cluster(cluster_list, basic_cluster, ESP_ZB_ZCL_CLUSTER_SERVER_ROLE));
 
     // Identify
